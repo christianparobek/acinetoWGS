@@ -24,19 +24,19 @@
 ########################### SET USEFUL PATHS #############################
 ##########################################################################
 
-ref=/proj/julianog/refs/AbHGAP_2Cells/polished_assembly.fasta
+ref=/proj/julianog/refs/AbHGAP_George/polished_assembly.fasta
 reads=/proj/julianog/sequence_reads/htsf_seq_backups/2014_11_24_Hajime_acineto_illumina
 picard=/nas02/apps/picard-1.88/picard-tools-1.88
-gatk=/nas02/apps/biojars-1.0/GenomeAnalysisTK-3.2-2/GenomeAnalysisTK.jar
+gatk=/nas02/apps/biojars-1.0/GenomeAnalysisTK-3.3-0/GenomeAnalysisTK.jar
 #dir=aln/ # This sets the working directory
-dir=sensAln/ # This sets the working directory
+dir=aln/ # This sets the working directory
 
 ##########################################################################
 ###################### SAMPLE ALIGNMENT & CLEANING #######################
 ##########################################################################
 
-for file in `cat names/needDeeperCov.txt`
-do
+#for file in `cat names/filenames.txt`
+#do
 
 ### ALIGN PAIRED-END READS WITH BWA_MEM
 #bwa mem -M \
@@ -51,68 +51,73 @@ do
 ##		 -t indicates number of threads
 ##		 -v 2 is verbosity ... warnings and errors only
 
-### POTENTIALLY MORE SENSITIVE ALIGNMENT
-bwa mem -M \
-	-t 2 \
-	-v 2 \
-	-A 2 \
-	-L 15 \
-	-U 9 \
-	-T 75 \
-	-k 19 \
-	-w 100 \
-	-d 100 \
-	-r 1.5 \
-	-c 10000 \
-	-B 4 \
-	-O 6 \
-	-E 1 \
-	-R "@RG\tID:$file\tPL:illumina\tLB:$file\tSM:$file" \
-	$ref \
-	$reads/$file\_R1_001.fastq.gz \
-	$reads/$file\_R2_001.fastq.gz \
-	> $dir/$file.sam
-		# -M marks shorter split hits as secondary
-		# -t indicates number of threads
-		# -v 2 is verbosity ... warnings and errors only
+##### POTENTIALLY MORE SENSITIVE ALIGNMENT
+##bwa mem -M \
+##	-t 2 \
+##	-v 2 \
+##	-A 3 \
+##	-L 15 \
+##	-U 9 \
+##	-T 75 \
+##	-k 19 \
+##	-w 100 \
+##	-d 100 \
+##	-r 1.5 \
+##	-c 10000 \
+##	-B 4 \
+##	-O 6 \
+##	-E 1 \
+##	-R "@RG\tID:$file\tPL:illumina\tLB:$file\tSM:$file" \
+##	$ref \
+##	$reads/$file\_R1_001.fastq.gz \
+##	$reads/$file\_R2_001.fastq.gz \
+##	> $dir/$file.sam
+##		# -M marks shorter split hits as secondary
+##		# -t indicates number of threads
+##		# -v 2 is verbosity ... warnings and errors only
 
-## SORT SAM FILE AND OUTPUT AS BAM
-java -jar $picard/SortSam.jar \
-	I=$dir/$file.sam \
-	O=$dir/$file.sorted.bam \
-	SO=coordinate
+### SORT SAM FILE AND OUTPUT AS BAM
+#java -jar $picard/SortSam.jar \
+#	I=$dir/$file.sam \
+#	O=$dir/$file.sorted.bam \
+#	SO=coordinate
 
-## MARK DUPLICATES
-java -jar $picard/MarkDuplicates.jar \
-	I=$dir/$file.sorted.bam \
-	O=$dir/$file.dedup.bam \
-	METRICS_FILE=$dir/$file.dedup.metrics \
-	REMOVE_DUPLICATES=True
+### MARK DUPLICATES
+#java -jar $picard/MarkDuplicates.jar \
+#	I=$dir/$file.sorted.bam \
+#	O=$dir/$file.dedup.bam \
+#	METRICS_FILE=$dir/$file.dedup.metrics \
+#	REMOVE_DUPLICATES=True
 
-## INDEX BAM FILE PRIOR TO REALIGNMENT
-java -jar $picard/BuildBamIndex.jar \
-	INPUT=$dir/$file.dedup.bam
+### INDEX BAM FILE PRIOR TO REALIGNMENT
+#java -jar $picard/BuildBamIndex.jar \
+#	INPUT=$dir/$file.dedup.bam
 
-## IDENTIFY WHAT REGIONS NEED TO BE REALIGNED 
-java -jar $gatk \
-	-T RealignerTargetCreator \
-	-R $ref \
-	-I $dir/$file.dedup.bam \
-	-o $dir/$file.realigner.intervals
+### IDENTIFY WHAT REGIONS NEED TO BE REALIGNED 
+#java -jar $gatk \
+#	-T RealignerTargetCreator \
+#	-R $ref \
+#	-I $dir/$file.dedup.bam \
+#	-o $dir/$file.realigner.intervals
 
-## PERFORM THE ACTUAL REALIGNMENT
-java -jar $gatk \
-	-T IndelRealigner \
-	-R $ref \
-	-I $dir/$file.dedup.bam \
-	-targetIntervals $dir/$file.realigner.intervals \
-	-o $dir/$file.realn.bam
+### PERFORM THE ACTUAL REALIGNMENT
+#java -jar $gatk \
+#	-T IndelRealigner \
+#	-R $ref \
+#	-I $dir/$file.dedup.bam \
+#	-targetIntervals $dir/$file.realigner.intervals \
+#	-o $dir/$file.realn.bam
 
-## CALCULATE COVERAGE
-#bedtools genomecov -ibam $dir/$file.realn.bam -max 10 | grep genome > coverage/aln_vs_HGAP/$file.cov10
-#tail -1 coverage/aln_vs_HGAP/$file.cov10 | cut -f 5 >> coverage/aln_vs_HGAP/genome10.txt
+#rm aln/*.sam
+#rm aln/*dedup*
+#rm aln/*sorted*
+#rm aln/*intervals
 
-done
+### CALCULATE COVERAGE
+##bedtools genomecov -ibam $dir/$file.realn.bam -max 10 | grep genome > coverage/aln_vs_HGAP/$file.cov10
+##tail -1 coverage/aln_vs_HGAP/$file.cov10 | cut -f 5 >> coverage/aln_vs_HGAP/genome10.txt
+
+#done
 
 ##########################################################################
 ############################ VARIANT CALLING #############################
@@ -123,16 +128,16 @@ done
 #	-T UnifiedGenotyper \
 #	-R $ref \
 #	-I names/good42bamnames.list \
-#	-o variants/good42.vcf \
+#	-o variants/good42_UG.vcf \
 #	-ploidy 1 \
-#	-nt 2
+#	-nt 1
 
 ### TRYING OUT HAPLOTYPE CALLER
 #java -jar $gatk \
 #	-T HaplotypeCaller \
 #	-R $ref \
-#	-I bamnames.list \
-#	-o variants/acineto48.vcf \
+#	-I names/good42bamnames.list \
+#	-o variants/good42_HC.vcf \
 #	-ploidy 1
 #		# gatk.intervals includes just the chromosomes and mitochondria
 #		# HC does not support -nt
@@ -141,25 +146,25 @@ done
 ########################### VARIANT FILTERING ############################
 ##########################################################################
 
-### FILTER BY DEPTH IN PERCENTAGE OF SAMPLES
-#java -Xmx2g -jar $gatk \
-#	-T CoveredByNSamplesSites \
-#	-R $ref \
-#	-V variants/good42.vcf \
-#	-out variants/5xAT100%.intervals \
-#	-minCov 5 \
-#	-percentage 0.9999999
-#		# Output interval file contains sites that passed
+## FILTER BY DEPTH IN PERCENTAGE OF SAMPLES
+java -Xmx2g -jar $gatk \
+	-T CoveredByNSamplesSites \
+	-R $ref \
+	-V variants/good42_HC.vcf \
+	-out variants/5xAT100%.intervals \
+	-minCov 5 \
+	-percentage 0.9999999
+		# Output interval file contains sites that passed
 
-### FILTER VCF BY DEPTH ACROSS SAMPLES
-#java -jar $gatk \
-#	-T VariantFiltration \
-#	-R $ref \
-#	-V variants/good42.vcf \
-#	-L variants/5xAT100%.intervals \
-#	--logging_level ERROR \
-#	-o variants/good42.5xAT100%.vcf
-#		# --logging_level ERROR suppresses any unwanted messages
+## FILTER VCF BY DEPTH ACROSS SAMPLES
+java -jar $gatk \
+	-T VariantFiltration \
+	-R $ref \
+	-V variants/good42_HC.vcf \
+	-L variants/5xAT100%.intervals \
+	--logging_level ERROR \
+	-o variants/good42_HC_5xAT100%.vcf
+		# --logging_level ERROR suppresses any unwanted messages
 
 ## NOW NEED TO RUN vcfFilter.Rmd
 ## AND USE THOSE PLOTS TO DETERMINE QUAL VALUES TO CUT AT 
@@ -221,23 +226,33 @@ done
 ############################## EXTRA TOOLS ###############################
 ##########################################################################
 
-for bam in `cat names/needDeeperCov.txt`
-do
+#for bam in `cat names/needDeeperCov.txt`
+#do
 
-## MAKE IGV BATCH FILES
-echo "## Batch script to take pictures of the glta sequence
-new
-genome HGAP_2Cells_5Feb2015
-snapshotDirectory /proj/julianog/users/ChristianP/acinetoWGS/mlst
-load /proj/julianog/users/ChristianP/acinetoWGS/$dir/$bam.realn.bam
-goto unitig_30|quiver:1,996,986-1,997,470
-snapshot $bam.png
-exit" > mlst/$bam.batch
+### MAKE IGV BATCH FILES
+#echo "## Batch script to take pictures of the glta sequence
+#new
+#genome HGAP_2Cells_5Feb2015
+#snapshotDirectory /proj/julianog/users/ChristianP/acinetoWGS/mlst-cleanup-A3
+#load /proj/julianog/users/ChristianP/acinetoWGS/$dir/$bam.realn.bam
+#goto unitig_31|quiver:232,505-233,139
+#snapshot $bam.fusa.png
+#goto unitig_30|quiver:1,996,986-1,997,470
+#snapshot $bam.glta.png
+#goto unitig_30|quiver:932,307-932,605
+#snapshot $bam.pyrg.png
+#goto unitig_30|quiver:1,007,379-1,007,752
+#snapshot $bam.reca.png
+#goto unitig_29|quiver:54,233-54,564
+#snapshot $bam.rplb.png
+#goto unitig_28|quiver:27,764-28,221
+#snapshot $bam.rpob.png
+#exit" > mlst/$bam.batch
 
-## RUN THE BATCH SCRIPT IN IGV
-igv -b mlst/$bam.batch
+### RUN THE BATCH SCRIPT IN IGV
+#igv -b mlst/$bam.batch
 
-done
+#done
 
 
 ### GATK DEPTH OF COVERAGE CALCUALTOR
