@@ -4,30 +4,40 @@
 # Genomics Tutorial: http://adegenet.r-forge.r-project.org/files/tutorial-genomics.pdf
 # Extra Commands: http://www.inside-r.org/packages/cran/adegenet/docs/.rmspaces
 
+
+### LOAD LIBRARIES ###
 library(adegenet)
 
-# Read in structure-formatted SNP data
-data <- read.table("combined.str", skip=1)
-	# skip header line because it throws an error
+### READ IN THE DATA ###
+data <- read.table("good42_UG_pass.str", skip=1) # read in data
+sorted <- data[order(data[,1]),] # sort
+inds <- sorted$V1 # grab the indiv names
+pops <- sorted$V2 # grab the pop names
+sorted <- sorted[-c(1,2)] # remove ind and pop columns from data frame
+genlight <- new("genlight", sorted) # convert data frame into genlight object
+indNames(genlight) <- inds # add back individual information
+ploidy(genlight) <- 1 # add back population information
 
-# Prepare the data.frame for conversion to genlight object
-inds <- data$V1 # grab the individual names
-data <- data[-c(1,2)]
+### DO THE PCA CALCULATIONS ###
+pca1 <- glPca(genlight) # for genlight
 
-# Convert data.frame into 
-x <- new("genlight", data)
+### PLOT PCA EIGENVALUES ###
+barplot(pca1$eig, xlab = "", ylab = "Variance", main = "P. vivax Eigenvalues") # barplot
 
-indNames(x) <- inds
-ploidy(x) <- 1
+### ADD JITTER ###
+pca1$scores[,1] <- jitter(pca1$scores[,1], factor=400) # add jitter if overplotting
+pca1$scores[,2] <- jitter(pca1$scores[,2], factor=400) # add jitter if overplotting
+pca1$scores[,3] <- jitter(pca1$scores[,3], factor=400) # add jitter if overplotting
+pca1$scores[,4] <- jitter(pca1$scores[,4], factor=400) # add jitter if overplotting
 
-glPlot(x, col = funky(5))
-dev.off()
-
-
-pca1 <- glPca(x)
-
-scatter(pca1,posi="bottomright")
-title("PCA of Cambodian P. vivax genomes\n axes 1-2")
-dev.off()
-
+### PLOT PCA PICTURE ###
+plot(pca1$scores[,1], pca1$scores[,2], 
+     pch=19, 
+     axes=FALSE, 
+     xlab=paste("PC1 - ", round(pca1$eig[1]/sum(pca1$eig)*100), "% of the Variance", sep = ""),
+     ylab=paste("PC2 - ", round(pca1$eig[2]/sum(pca1$eig)*100), "% of the Variance", sep = ""),
+     main="A. baumannii PCA"
+)
+axis(1)
+axis(2)
 
