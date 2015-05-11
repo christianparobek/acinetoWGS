@@ -15,6 +15,7 @@ library(ape)
 library(adegenet)
 library(outbreaker)
 library(stringr)
+library(igraph)
 
 ################################################
 ######### DEFINE SOME USEFUL FUNCTIONS #########
@@ -77,14 +78,15 @@ plotChains(resp)
 plotChains(resp, burnin=2e4)
 
 ## Look at infective time
-plotOutbreak(resp)
-
+plotOutbreak(resp, burnin=399999, lwd.arrow=0, annot="", axes=FALSE, xlab="Days Since Index Case Presentation", col.pal=colorRampPalette(c("gray50","gray50")))
+axis(1, at=c(13800,14000,14200,14400,14600,14800,15000,15200), labels=c(0,200,400,600,800,1000,1200,1400))
+axis(2, at=1:42, labels=names, las=2, cex.axis=0.9)
 
 ######################################
 ##### DRAW THE TRANSMISSION TREE #####
 ######################################
 
-g <- transGraph(resp, thresh=0.25, annot="", vertex.color=case.color$col, vertex.size=case.size) # draw tx tree
+g <- transGraph(resp, thresh=0.3, annot="") # draw tx tree
 
 R <- lapply(V(g), detectR) # get nb "out" transmissions per sample
 case_size <- 10+unlist(lapply(R, length))*3 # make the sizing vector
@@ -96,10 +98,10 @@ V(g)$size <- case_size # assign size
 V(g)$label <- names # assign name
 
 tkplot(g, canvas.width=600, canvas.height=600) # adjust to my liking # layout=coords, 
-coords <- tkplot.getcoords(33) # get the coordinates
+coords <- tkplot.getcoords(2) # get the coordinates
 
 par(mar=c(0,0,0,0))
-plot(g, layout=coords, vertex.label.color="black", edge.arrow.size=0.60) # make final plot
+plot(g, layout=coords, vertex.label.color="black", edge.arrow.size=0.70) # make final plot
 
 # Add the legend
 ## Plotting the colors for infection dates
@@ -231,25 +233,9 @@ dat <- simOutbreak(R0 = 2, infec.curve = w, n.hosts = 100)[1:30]
 collecDates <- dat$onset + sample(0:3, size=30, replace=TRUE, prob=w)
 
 
-## LOAD TOY DATASET
-load("fakeOutbreak.RData")
-## OR
-#data(fakeOutbreak)
-
-## MAKE OBJECTS WITHIN DATASET SEARCHABLE
-attach(fakeOutbreak)
-
 ## VISUALIZE DYNAMICS
 matplot(fakeOutbreak$dat$dynam, type="o", pch=20, lty=1,
         main="Outbreak dynamics", xlim=c(0,28))
 legend("topright", legend=c("S","I","R"), lty=1, col=1:3)
 graphics.off()
-
-## VISUALIZE TRANSMISSION TREE
-plot(dat, annot="dist", main="Data - transmission tree")
-mtext(side=3, "arrow annotations are numbers of mutations")
-graphics.off()
-
-
-
 

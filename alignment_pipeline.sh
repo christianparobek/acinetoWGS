@@ -28,53 +28,39 @@ ref=/proj/julianog/refs/AbHGAP_George/polished_assembly.fasta
 reads=/proj/julianog/sequence_reads/htsf_seq_backups/2014_11_24_Hajime_acineto_illumina
 picard=/nas02/apps/picard-1.88/picard-tools-1.88
 gatk=/nas02/apps/biojars-1.0/GenomeAnalysisTK-3.3-0/GenomeAnalysisTK.jar
-#dir=aln/ # This sets the working directory
-dir=aln/ # This sets the working directory
+dir=aln # This sets the working directory
 
 ##########################################################################
 ###################### SAMPLE ALIGNMENT & CLEANING #######################
 ##########################################################################
 
-#for file in `cat names/filenames.txt`
+#for file in `cat names/4forA3.txt`
 #do
 
-### ALIGN PAIRED-END READS WITH BWA_MEM
+#### POTENTIALLY MORE SENSITIVE ALIGNMENT
 #bwa mem -M \
-#	-t 2 \
+#	-t 1 \
 #	-v 2 \
+#	-A 2 \
+#	-L 15 \
+#	-U 9 \
+#	-T 75 \
+#	-k 19 \
+#	-w 100 \
+#	-d 100 \
+#	-r 1.5 \
+#	-c 10000 \
+#	-B 4 \
+#	-O 6 \
+#	-E 1 \
 #	-R "@RG\tID:$file\tPL:illumina\tLB:$file\tSM:$file" \
 #	$ref \
 #	$reads/$file\_R1_001.fastq.gz \
 #	$reads/$file\_R2_001.fastq.gz \
 #	> $dir/$file.sam
-##		 -M marks shorter split hits as secondary
-##		 -t indicates number of threads
-##		 -v 2 is verbosity ... warnings and errors only
-
-##### POTENTIALLY MORE SENSITIVE ALIGNMENT
-##bwa mem -M \
-##	-t 2 \
-##	-v 2 \
-##	-A 3 \
-##	-L 15 \
-##	-U 9 \
-##	-T 75 \
-##	-k 19 \
-##	-w 100 \
-##	-d 100 \
-##	-r 1.5 \
-##	-c 10000 \
-##	-B 4 \
-##	-O 6 \
-##	-E 1 \
-##	-R "@RG\tID:$file\tPL:illumina\tLB:$file\tSM:$file" \
-##	$ref \
-##	$reads/$file\_R1_001.fastq.gz \
-##	$reads/$file\_R2_001.fastq.gz \
-##	> $dir/$file.sam
-##		# -M marks shorter split hits as secondary
-##		# -t indicates number of threads
-##		# -v 2 is verbosity ... warnings and errors only
+#		# -M marks shorter split hits as secondary
+#		# -t indicates number of threads
+#		# -v 2 is verbosity ... warnings and errors only
 
 ### SORT SAM FILE AND OUTPUT AS BAM
 #java -jar $picard/SortSam.jar \
@@ -108,12 +94,12 @@ dir=aln/ # This sets the working directory
 #	-targetIntervals $dir/$file.realigner.intervals \
 #	-o $dir/$file.realn.bam
 
-#rm aln/*.sam
-#rm aln/*dedup*
-#rm aln/*sorted*
-#rm aln/*intervals
+##rm aln/*.sam
+##rm aln/*dedup*
+##rm aln/*sorted*
+##rm aln/*intervals
 
-### CALCULATE COVERAGE
+#### CALCULATE COVERAGE
 ##bedtools genomecov -ibam $dir/$file.realn.bam -max 10 | grep genome > coverage/aln_vs_HGAP/$file.cov10
 ##tail -1 coverage/aln_vs_HGAP/$file.cov10 | cut -f 5 >> coverage/aln_vs_HGAP/genome10.txt
 
@@ -123,7 +109,7 @@ dir=aln/ # This sets the working directory
 ############################ VARIANT CALLING #############################
 ##########################################################################
 
-### MULTIPLE-SAMPLE VARIANT CALLING (UG IS GATK'S CALLER FOR NON-DIPLOID)
+### MULTIPLE-SAMPLE VARIANT CALLING
 #java -jar $gatk \
 #	-T UnifiedGenotyper \
 #	-R $ref \
@@ -139,118 +125,192 @@ dir=aln/ # This sets the working directory
 #	-I names/good42bamnames.list \
 #	-o variants/good42_HC.vcf \
 #	-ploidy 1
-#		# gatk.intervals includes just the chromosomes and mitochondria
-#		# HC does not support -nt
+#		 gatk.intervals includes just the chromosomes and mitochondria
+#		 HC does not support -nt
 
 ##########################################################################
 ########################### VARIANT FILTERING ############################
 ##########################################################################
 
-## FILTER BY DEPTH IN PERCENTAGE OF SAMPLES
-java -Xmx2g -jar $gatk \
-	-T CoveredByNSamplesSites \
-	-R $ref \
-	-V variants/good42_HC.vcf \
-	-out variants/5xAT100%.intervals \
-	-minCov 5 \
-	-percentage 0.9999999
-		# Output interval file contains sites that passed
+### FILTER BY DEPTH IN PERCENTAGE OF SAMPLES
+#java -Xmx2g -jar $gatk \
+#	-T CoveredByNSamplesSites \
+#	-R $ref \
+#	-V variants/good42_UG.vcf \
+#	-out variants/5xAT100%.intervals \
+#	-minCov 5 \
+#	-percentage 0.9999999
+#		# Output interval file contains sites that passed
 
-## FILTER VCF BY DEPTH ACROSS SAMPLES
-java -jar $gatk \
-	-T VariantFiltration \
-	-R $ref \
-	-V variants/good42_HC.vcf \
-	-L variants/5xAT100%.intervals \
-	--logging_level ERROR \
-	-o variants/good42_HC_5xAT100%.vcf
-		# --logging_level ERROR suppresses any unwanted messages
-
-## NOW NEED TO RUN vcfFilter.Rmd
-## AND USE THOSE PLOTS TO DETERMINE QUAL VALUES TO CUT AT 
-
-### FILTER VCF BY NEAFSEY PARALOGS, TANDEM REPEATS, SUBTELOMERES, AND QUALITY SCORES
+### FILTER VCF BY DEPTH ACROSS SAMPLES
 #java -jar $gatk \
 #	-T VariantFiltration \
 #	-R $ref \
-#	-V variants/good42.5xAT100%.vcf \
+#	-V variants/good42_UG.vcf \
+#	-L variants/5xAT100%.intervals \
+#	--logging_level ERROR \
+#	-o variants/good42_UG_5xAT100%.vcf
+#		# --logging_level ERROR suppresses any unwanted messages
+
+### NOW NEED TO RUN vcfFilter.Rmd
+### AND USE THOSE PLOTS TO DETERMINE QUAL VALUES TO CUT AT 
+
+### FILTER VCF BY QUALITY SCORES
+#java -jar $gatk \
+#	-T VariantFiltration \
+#	-R $ref \
+#	-V variants/good42_UG_5xAT100%.vcf \
+#	-L variants/5xAT100%.intervals \
 #	--filterExpression "QD < 20.0" \
 #	--filterName "QD" \
 #	--filterExpression "MQ < 55.0" \
 #	--filterName "MQ" \
-#	--filterExpression "FS > 5.0" \
+#	--filterExpression "FS > 10.0" \
 #	--filterName "FS" \
 #	--filterExpression "MQRankSum < -5.0" \
 #	--filterName "MQRankSum" \
 #	--filterExpression "ReadPosRankSum < -5.0" \
 #	--filterName "ReadPosRankSum" \
 #	--logging_level ERROR \
-#	-o variants/good42.qual.vcf
+#	-o variants/good42_UG_qual.vcf
 #		# --logging_level ERROR suppresses any unwanted messages
 #		# The three .intervals files contain intervals that should be excluded
+
+### SELECT ONLY THE RECORDS THAT PASSED ALL QUALITY FILTERS
+#java -jar $gatk \
+#	-T SelectVariants \
+#	-R $ref \
+#	-V variants/good42_UG_qual.vcf \
+#	-select 'vc.isNotFiltered()' \
+#	-restrictAllelesTo BIALLELIC \
+#	-o variants/good42_UG_pass.vcf
+#		#-select 'vc.isNotFiltered()' keeps only sites that have not been filtered
 
 ##########################################################################
 ####################### FORMATTING FOR OUTBREAKER ########################
 ##########################################################################
 
-#for name in `cat names/good42.txt`
-#do
+for name in `cat names/good42.txt`
+do
 
 ### SPLIT VCF INTO INDIVIDUAL VCFs
 #java -Xmx2g -jar $gatk \
 #	-T SelectVariants \
 #	-R $ref \
-#	--variant variants/good42.qual.vcf \
+#	--variant variants/good42_UG_pass.vcf \
 #	-sn $name \
-#	-o variants/indivs/$name.vcf
+#	-o variants/indivs_UG/$name.vcf
 
-### REMOVE ALL NON-ENTRIES IN INDIVIDUAL FILES (GT=0)
-#grep -vP "PL\t0" variants/indivs/$name.vcf > variants/indivs/$name.sans0.vcf
+### REMOVE ALL NON-ENTRIES IN INDIVIDUAL FILES (PL=0 & GT=0)
+#grep -vP "PL\t0" variants/indivs_UG/$name.vcf | grep -vP "\tGT\t." > variants/indivs_UG/$name.sans0.vcf
 
 ### VCF TO FASTA
 #java -Xmx2g -jar $gatk \
 #	-T FastaAlternateReferenceMaker \
 #	-R $ref \
-#	--variant variants/indivs/$name.sans0.vcf \
-#	-o variants/indivs/$name.fa
-#		## --rawOnelineSeq prints only sequence
+#	--variant variants/indivs_UG/$name.sans0.vcf \
+#	-o variants/indivs_UG/$name.fa
+#		 --rawOnelineSeq prints only sequence
 
 ### CREATING THE MULTIFASTA
-#echo ">"$name >> variants/good42.fa
-#grep -v ">" variants/indivs/$name.fa >> variants/good42.fa
+#echo ">"$name >> variants/good42_UG.fa
+#grep -v ">" variants/indivs_UG/$name.fa >> variants/good42_UG.fa
 
-#done
+## RENAME FIRST LINE OF INDIVIDUAL FASTA FILE AND GET RID OF ALL THE EXTRA ">"s
+#awk '{if( NR==1)print ">"FILENAME;else print}' variants/indivs_UG/$name.fa | grep -Pv ">\d" > variants/indivs_UG/$name.sans0.fa
+
+### CREATE THE MULTIFASTA
+#cat variants/indivs_UG/$name.sans0.fa >> variants/good42_UG_pass.fa
+
+## CLEANUP
+rm variants/indivs_UG/$name.fa
+rm variants/indivs_UG/$name.vcf
+rm variants/indivs_UG/$name.vcf.idx
+
+done
 
 
 ##########################################################################
 ############################## EXTRA TOOLS ###############################
 ##########################################################################
 
-#for bam in `cat names/needDeeperCov.txt`
+#######################################
+###### PASTEUR MLST IGV PICTURES ######
+#######################################
+#for bam in `cat names/filenames.txt`
+#do
+### MAKE IGV BATCH FILES FOR PASTEUR
+#echo "## Batch script to take pictures of mlst sequence alignments
+#new
+#genome George_HGAP_2Cells_16Feb2015
+#snapshotDirectory /proj/julianog/users/ChristianP/acinetoWGS/mlst-pasteur
+#load /proj/julianog/users/ChristianP/acinetoWGS/$dir/$bam.realn.bam
+#goto unitig_1|quiver:75,021-75,425
+#snapshot $bam.cpn.png
+#goto unitig_37|quiver:224,766-225,398
+#snapshot $bam.fusa.png
+#goto unitig_1|quiver:155,149-155,631
+#snapshot $bam.glta.png
+#goto unitig_33|quiver:911,913-912,209
+#snapshot $bam.pyrg.png
+#goto unitig_33|quiver:836,766-837,137
+#snapshot $bam.reca.png
+#goto unitig_35|quiver:641,200-641,529
+#snapshot $bam.rplb.png
+#goto unitig_7|quiver:118,365-118,820
+#snapshot $bam.rpob.png
+#exit" > mlst-pasteur/$bam.batch
+### RUN THE BATCH SCRIPT IN IGV
+#igv -b mlst-pasteur/$bam.batch
+#done
+
+#######################################
+####### OXFORD MLST IGV PICTURES ######
+#######################################
+#for bam in `cat names/filenames.txt`
+#do
+### MAKE IGV BATCH FILES FOR PASTEUR
+#echo "## Batch script to take pictures of mlst sequence alignments
+#new
+#genome George_HGAP_2Cells_16Feb2015
+#snapshotDirectory /proj/julianog/users/ChristianP/acinetoWGS/mlst-oxford
+#load /proj/julianog/users/ChristianP/acinetoWGS/$dir/$bam.realn.bam
+#goto unitig_1|quiver:75,021-75,425
+#snapshot $bam.cpn.png
+#goto unitig_33|quiver:849,940-850,283
+#snapshot $bam.gdhb.png
+#goto unitig_1|quiver:155,149-155,631
+#snapshot $bam.glta.png
+#goto unitig_35|quiver:115,042-115,346
+#snapshot $bam.gpi.png
+#goto unitig_35|quiver:187,664-188,120
+#snapshot $bam.gyrb.png
+#goto unitig_33|quiver:836,767-837,137
+#snapshot $bam.reca.png
+#goto unitig_1|quiver:160,860-161,372
+#snapshot $bam.rpod.png
+#exit" > mlst-oxford/$bam.batch
+### RUN THE BATCH SCRIPT IN IGV
+#igv -b mlst-oxford/$bam.batch
+#done
+
+
+
+##############################################
+### GET FASTAS FOR DETERMINING OXFORD MLST ###
+##############################################
+
+#for name in `cat names/filenames.txt`
 #do
 
-### MAKE IGV BATCH FILES
-#echo "## Batch script to take pictures of the glta sequence
-#new
-#genome HGAP_2Cells_5Feb2015
-#snapshotDirectory /proj/julianog/users/ChristianP/acinetoWGS/mlst-cleanup-A3
-#load /proj/julianog/users/ChristianP/acinetoWGS/$dir/$bam.realn.bam
-#goto unitig_31|quiver:232,505-233,139
-#snapshot $bam.fusa.png
-#goto unitig_30|quiver:1,996,986-1,997,470
-#snapshot $bam.glta.png
-#goto unitig_30|quiver:932,307-932,605
-#snapshot $bam.pyrg.png
-#goto unitig_30|quiver:1,007,379-1,007,752
-#snapshot $bam.reca.png
-#goto unitig_29|quiver:54,233-54,564
-#snapshot $bam.rplb.png
-#goto unitig_28|quiver:27,764-28,221
-#snapshot $bam.rpob.png
-#exit" > mlst/$bam.batch
-
-### RUN THE BATCH SCRIPT IN IGV
-#igv -b mlst/$bam.batch
+### VCF TO FASTA
+#java -Xmx2g -jar $gatk \
+#	-T FastaAlternateReferenceMaker \
+#	-R $ref \
+#	-L intervals/oxfordMLST.intervals \
+#	--variant variants/indivs_UG/$name.sans0.vcf \
+#	-o mlst-oxford/$name.fa
+#		## --rawOnelineSeq prints only sequence
 
 #done
 

@@ -32,11 +32,12 @@ pca1$scores[,4] <- jitter(pca1$scores[,4], factor=400) # add jitter if overplott
 
 ### PLOT PCA PICTURE ###
 plot(pca1$scores[,1], pca1$scores[,2], 
-     pch=19, 
+     pch=19,
+     cex=0.5,
      axes=FALSE, 
-     xlab=paste("PC1 - ", round(pca1$eig[1]/sum(pca1$eig)*100), "% of the Variance", sep = ""),
-     ylab=paste("PC2 - ", round(pca1$eig[2]/sum(pca1$eig)*100), "% of the Variance", sep = ""),
-     main="A. baumannii PCA"
+     xlab=paste("PC1 - ", round(pca1$eig[1]/sum(pca1$eig)*100), "% of variance", sep = ""),
+     ylab=paste("PC2 - ", round(pca1$eig[2]/sum(pca1$eig)*100), "% of variance", sep = ""),
+     main=""
 )
 axis(1)
 axis(2)
